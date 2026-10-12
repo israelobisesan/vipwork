@@ -3,11 +3,17 @@ services:
     name: fgurl-vip
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 main:app
+    region: frankfurt
+    branch: main
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --access-logfile - --error-logfile - main:app
     healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 60
     envVars:
       - key: SECRET_KEY
         generateValue: true
       - key: PAYSTACK_SECRET_KEY
         sync: false
+      - key: PYTHON_VERSION
+        value: 3.13.5
