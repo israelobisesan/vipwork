@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FGURL VIP | Secure Settlement Gateway</title>
+    <link rel="stylesheet" href="VIP LAND.css">
+    <script src="https://paystack.co"></script>
+</head>
+<body>
+    <div class="container" style="max-width: 600px; margin-top:40px;">
+        <div class="job-card">
+            <h2 style="color:#1a202c; margin-bottom:10px;">FGURL VIP Invoicing</h2>
+            <div style="background:#edf2f7; padding:18px; border-radius:10px; margin:15px 0; font-size:15px; border:1px solid #e2e8f0;">
+                <p style="margin-bottom:6px;">Service Requested: <strong id="outJob">...</strong></p>
+                <p style="margin-bottom:6px;">Corporate Base Cost: <strong id="outActual">...</strong></p>
+                <p style="margin-bottom:6px;">VIP Urgency Fee (25%): <strong id="outVip">...</strong></p>
+                <hr style="margin:12px 0; border:0; border-top:1px solid #cbd5e0;">
+                <p style="font-size:18px; font-weight:bold;">Total Payable Invoice: <strong id="outTotal" style="color:green;">...</strong></p>
+            </div>
+
+            <!-- Paystack Gateway Button Trigger -->
+            <button class="btn" style="background:#38a169;" onclick="launchPaystackCheckout()">Securely Pay via Paystack Gateway</button>
+            <button class="btn" style="background:#edf2f7; color:#4a5568; margin-top:10px;" onclick="window.location.href='jobs.html'">Cancel Order</button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        const job = localStorage.getItem('checkout_job');
+        const actual = parseInt(localStorage.getItem('checkout_actual_price'), 10);
+        
+        const vipSurcharge = actual * 0.25; 
+        const totalPayable = actual + vipSurcharge;
+
+        document.getElementById('outJob').innerText = job;
+        document.getElementById('outActual').innerText = "₦" + actual.toLocaleString();
+        document.getElementById('outVip').innerText = "₦" + vipSurcharge.toLocaleString();
+        document.getElementById('outTotal').innerText = "₦" + totalPayable.toLocaleString();
+
+        function launchPaystackCheckout() {
+            const activeUser = localStorage.getItem('active_user') || 'guest';
+            const simulatedEmail = `${activeUser}@fgurlvip.com`;
+
+            let handler = PaystackPop.setup({
+                // Replace with your live Paystack public key (starts with pk_live_)
+                key: PAYSTACK_PUBLIC_KEY, 
+                email: simulatedEmail,
+                amount: totalPayable * 100, 
+                currency: 'NGN',
+                
+                // 🏦 LIVE ROUTED SUBACCOUNT PRE-ALIGNED (12% TO YOU / 88% TO PARTNER)
+                subaccount: 'ACCT_rzai8uws45g8vg5', 
+                
+                metadata: {
+                    custom_fields: [
+                        { display_name: "Customer Username", variable_name: "username", value: activeUser },
+                        { display_name: "Job Type", variable_name: "job_type", value: job }
+                    ]
+                },
+                callback: function(response) {
+                    alert('Transaction Securely Verified by Bank Network Reference: ' + response.reference);
+                    dispatchConfirmationToBackend(response.reference);
+                },
+                onClose: function() {
+                    alert('Transaction cancelled.');
+                }
+            });
+            handler.openIframe();
+        }
+
+        async function dispatchConfirmationToBackend(referenceId) {
+            const payload = {
+                job_type: job,
+                actual_price: actual,
+                paystack_ref: referenceId
+            };
+
+            // Routes confirmation straight to your Render backend link
+            const response = await fetch(`${BACKEND_URL}/api/checkout-live`, {
+                method: 'POST',
+                headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                window.location.href = 'dashboard.html';
+            } else {
+                const err = await response.json().catch(() => ({}));
+                alert(err.message || "Cloud database accounting synchronization failure.");
+            }
+        }
+    </script>
+</body>
+</html>
